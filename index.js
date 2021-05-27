@@ -13,11 +13,14 @@ const createServer = (options) => {
 
   app.use(express.json({ type: '*/*' }))
 
+  app.get('/', (req, res) => {
+    res.send('Welcome to Algolite')
+  })
+
   app.post('/1/indexes/:indexName/query', async (req, res) => {
     const { body, params: { indexName } } = req
     const { params: queryParams } = body
-
-    const db = getIndex(indexName, path)
+    const db = await getIndex(indexName, path)
 
     const { query, filters, facetFilters } = queryParams ? querystring.parse(queryParams) : body
 
@@ -34,10 +37,10 @@ const createServer = (options) => {
       searchExp.push(parseAlgoliaSQL(db, facetFilters.map(f => Array.isArray(f) ? `(${f.join(' OR ')})` : f).join(' AND ')))
     }
 
-    const result = await db.SEARCH(...searchExp)
+    const { RESULT: results } = await db.QUERY({ SEARCH: searchExp }, { DOCUMENTS: true })
 
-    const hits = result.map((item) => {
-      const { obj } = item
+    const hits = results.map((item) => {
+      const { _doc: obj } = item
       obj.objectID = obj._id
       delete obj._id
       return obj
@@ -45,6 +48,7 @@ const createServer = (options) => {
 
     return res.json({
       hits,
+      index: indexName,
       params: queryParams || '',
       query: query || ''
     })
@@ -90,7 +94,7 @@ const createServer = (options) => {
       }
     }
 
-    const db = getIndex(indexName, path)
+    const db = await getIndex(indexName, path)
     if (puts.length) {
       await db.PUT(puts)
     }
@@ -100,7 +104,7 @@ const createServer = (options) => {
 
     return res.status(201).json({
       taskID: 'algolite-task-id',
-      objectIDs: body.requests.map(r => r.body.objectID)
+      objectIDs: [...puts, ...deletes].map(r => r._id)
     })
   })
 
@@ -108,7 +112,7 @@ const createServer = (options) => {
     const { body, params: { indexName } } = req
     const { objectID } = req.params
 
-    const db = getIndex(indexName, path)
+    const db = await getIndex(indexName, path)
     try {
       await db.DELETE([objectID])
     } catch (error) {
@@ -132,7 +136,7 @@ const createServer = (options) => {
   app.delete('/1/indexes/:indexName/:objectID', async (req, res) => {
     const { objectID, indexName } = req.params
 
-    const db = getIndex(indexName, path)
+    const db = await getIndex(indexName, path)
     try {
       await db.DELETE([objectID])
     } catch (error) {
@@ -154,7 +158,7 @@ const createServer = (options) => {
 
     const { facetFilters } = querystring.parse(queryParams)
 
-    const db = getIndex(indexName, path)
+    const db = await getIndex(indexName, path)
 
     const searchExp = []
     if (facetFilters) {
@@ -185,7 +189,7 @@ const createServer = (options) => {
       return res.status(400).end()
     }
 
-    const db = getIndex(indexName, path)
+    const db = await getIndex(indexName, path)
     const result = await db.INDEX.GET('')
     const ids = result.map(obj => obj._id)
     await db.INDEX.DELETE(ids)

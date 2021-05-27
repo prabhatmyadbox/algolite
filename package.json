@@ -15,10 +15,11 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.16.4",
-    "minimist": "^1.2.0",
-    "search-index": "^1.0.1",
-    "uuid": "^3.3.2"
+    "express": "^4.17.1",
+    "level": "^7.0.0",
+    "minimist": "^1.2.5",
+    "search-index": "^2.3.0",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "eslint": "^5.13.0",
