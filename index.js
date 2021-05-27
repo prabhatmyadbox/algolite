@@ -1,4 +1,5 @@
 const express = require('express')
+const cors = require('cors')
 const querystring = require('querystring')
 const parseAlgoliaSQL = require('./src/parseAlgoliaSQL')
 const { getIndex, existIndex } = require('./src/indexes')
@@ -8,6 +9,7 @@ const { v4 } = require('uuid')
 const createServer = (options) => {
   const path = options.path || process.cwd()
   const app = express()
+  app.use(cors())
 
   app.use(express.json({ type: '*/*' }))
 
