@@ -179,6 +179,29 @@ const createServer = (options) => {
     })
   })
 
+  /**
+   * Algolia Index methods:
+   * index.getObject()
+   */
+  app.get('/1/indexes/:indexName/:objectID', async (req, res) => {
+    const { params: { indexName, objectID } } = req
+    const db = await getIndex(indexName, replicas, path)
+    const { RESULT: results } = await db.QUERY({ GET: { _id: objectID } }, { DOCUMENTS: true })
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        message: 'ObjectID does not exist'
+      })
+    }
+
+    const obj = { objectID: results[0]._id, ...results[0]._doc }
+    delete obj._id
+
+    return res.status(200).json({
+      ...obj
+    })
+  })
+
   app.put('/1/indexes/:indexName/:objectID', async (req, res) => {
     const { body, params: { indexName } } = req
     const { objectID } = req.params
