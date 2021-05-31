@@ -11,15 +11,16 @@
   "scripts": {
     "generate:dsl-parser": "pegjs -o algoliaDSLParser.js algoliaDSL.pegjs",
     "prestart:container": "npm i && npm run generate:dsl-parser",
-    "start:container": "node cli.js"
+    "start:container": "node cli.js",
+    "start:container:debug": "DEBUG=express:* nodemon cli.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "level": "^7.0.0",
-    "minimist": "^1.2.5",
+    "minimist": "^1.2.0",
     "search-index": "^2.3.0",
-    "uuid": "^8.3.2"
+    "uuid": "^3.3.2"
   },
   "devDependencies": {
     "eslint": "^5.13.0",

@@ -3,11 +3,12 @@ const cors = require('cors')
 const querystring = require('querystring')
 const parseAlgoliaSQL = require('./src/parseAlgoliaSQL')
 const { getIndex, existIndex } = require('./src/indexes')
-
+const { getReplicas } = require('./src/helpers')
 const { v4 } = require('uuid')
 
 const createServer = (options) => {
   const path = options.path || process.cwd()
+  const replicas = getReplicas(options.replicas)
   const app = express()
   app.use(cors())
 
@@ -17,10 +18,14 @@ const createServer = (options) => {
     res.send('Welcome to Algolite')
   })
 
+  /**
+   * Algolia Index method(s):
+   * index.search()
+   */
   app.post('/1/indexes/:indexName/query', async (req, res) => {
     const { body, params: { indexName } } = req
     const { params: queryParams } = body
-    const db = await getIndex(indexName, path)
+    const db = await getIndex(indexName, replicas, path)
 
     const { query, filters, facetFilters } = queryParams ? querystring.parse(queryParams) : body
 
@@ -58,7 +63,7 @@ const createServer = (options) => {
     const { body, params: { indexName } } = req
     const _id = v4()
 
-    const db = getIndex(indexName, path)
+    const db = getIndex(indexName, replicas, path)
     await db.PUT([{
       _id,
       ...body
@@ -71,6 +76,11 @@ const createServer = (options) => {
     })
   })
 
+  /**
+   * Algolia Index methods:
+   * index.saveObject()
+   * index.saveObjects()
+   */
   app.post('/1/indexes/:indexName/batch', async (req, res) => {
     const { body, params: { indexName } } = req
     const puts = []
@@ -78,6 +88,12 @@ const createServer = (options) => {
 
     for (const request of body.requests) {
       switch (request.action) {
+        case 'addObject':
+          const _id = request.body.objectID || v4()
+          delete request.body.objectID
+          puts.push({ _id, ...request.body })
+          break
+
         case 'updateObject':
           request.body._id = request.body.objectID
           delete request.body.objectID
@@ -94,7 +110,7 @@ const createServer = (options) => {
       }
     }
 
-    const db = await getIndex(indexName, path)
+    const db = await getIndex(indexName, replicas, path)
     if (puts.length) {
       await db.PUT(puts)
     }
@@ -103,7 +119,6 @@ const createServer = (options) => {
     }
 
     return res.status(201).json({
-      taskID: 'algolite-task-id',
       objectIDs: [...puts, ...deletes].map(r => r._id)
     })
   })
@@ -112,7 +127,7 @@ const createServer = (options) => {
     const { body, params: { indexName } } = req
     const { objectID } = req.params
 
-    const db = await getIndex(indexName, path)
+    const db = await getIndex(indexName, replicas, path)
     try {
       await db.DELETE([objectID])
     } catch (error) {
@@ -136,7 +151,7 @@ const createServer = (options) => {
   app.delete('/1/indexes/:indexName/:objectID', async (req, res) => {
     const { objectID, indexName } = req.params
 
-    const db = await getIndex(indexName, path)
+    const db = await getIndex(indexName, replicas, path)
     try {
       await db.DELETE([objectID])
     } catch (error) {
@@ -158,7 +173,7 @@ const createServer = (options) => {
 
     const { facetFilters } = querystring.parse(queryParams)
 
-    const db = await getIndex(indexName, path)
+    const db = await getIndex(indexName, replicas, path)
 
     const searchExp = []
     if (facetFilters) {
@@ -189,7 +204,7 @@ const createServer = (options) => {
       return res.status(400).end()
     }
 
-    const db = await getIndex(indexName, path)
+    const db = await getIndex(indexName, replicas, path)
     const result = await db.INDEX.GET('')
     const ids = result.map(obj => obj._id)
     await db.INDEX.DELETE(ids)

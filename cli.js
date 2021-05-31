@@ -12,6 +12,7 @@ if (argv.help) {
     '--help                Display this help message and exit',
     '--port <port>         The port to listen on (default: 9200)',
     '--path <path>         The path to use for the LevelDB store (Your project folder)',
+    '--replicas <path>     The path to JSON file containing the index replicas map',
     '',
     'Report bugs at github.com/marconi1992/algolite/issues'
   ].join('\n'))
