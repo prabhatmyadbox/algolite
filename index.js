@@ -59,6 +59,62 @@ const createServer = (options) => {
     })
   })
 
+  /**
+   * Agolia Search Multiple Indices
+   */
+  app.post('/1/indexes/*/queries', async (req, res) => {
+    const { requests } = req.body
+
+    const results = []
+    for (const request of requests) {
+      const { indexName, params } = request
+      const db = await getIndex(indexName, replicas, path)
+
+      const { query, filters, facetFilters } = querystring.parse(params)
+
+      const searchExp = []
+      if (query) {
+        searchExp.push(query)
+      }
+
+      if (filters) {
+        searchExp.push(parseAlgoliaSQL(db, filters))
+      }
+
+      if (facetFilters) {
+        searchExp.push(parseAlgoliaSQL(db, facetFilters.map(f => Array.isArray(f) ? `(${f.join(' OR ')})` : f).join(' AND ')))
+      }
+
+      let docs = []
+      if (searchExp.length === 0) {
+        docs = await db.ALL_DOCUMENTS()
+      } else {
+        const response = await db.QUERY({ SEARCH: searchExp }, { DOCUMENTS: true })
+        docs = response.RESULT
+      }
+
+      const hits = docs.map((item) => {
+        const { _doc: obj } = item
+        obj.objectID = obj._id
+        delete obj._id
+        return obj
+      })
+
+      results.push({
+        hits,
+        hitsPerPage: 96,
+        index: indexName,
+        nbHits: 10,
+        nbPages: 1,
+        page: 0,
+        params: params || '',
+        query: query || ''
+      })
+    }
+
+    return res.json({ results })
+  })
+
   app.post('/1/indexes/:indexName', async (req, res) => {
     const { body, params: { indexName } } = req
     const _id = v4()
