@@ -46,7 +46,6 @@ const createServer = (options) => {
 
     const hits = results.map((item) => {
       const { _doc: obj } = item
-      obj.objectID = obj._id
       delete obj._id
       return obj
     })
@@ -95,7 +94,6 @@ const createServer = (options) => {
 
       const hits = docs.map((item) => {
         const { _doc: obj } = item
-        obj.objectID = obj._id
         delete obj._id
         return obj
       })
@@ -143,21 +141,19 @@ const createServer = (options) => {
     const deletes = []
 
     for (const request of body.requests) {
+      const _id = request.body.objectID
       switch (request.action) {
         case 'addObject':
-          const _id = request.body.objectID || v4()
-          delete request.body.objectID
           puts.push({ _id, ...request.body })
           break
 
         case 'updateObject':
-          request.body._id = request.body.objectID
-          delete request.body.objectID
-          puts.push(request.body)
+        case 'partialUpdateObjectNoCreate':
+          puts.push({ _id, ...request.body })
           break
 
         case 'deleteObject':
-          deletes.push(request.body.objectID)
+          deletes.push(_id)
           break
 
         default:
@@ -175,7 +171,7 @@ const createServer = (options) => {
     }
 
     return res.status(201).json({
-      objectIDs: [...puts, ...deletes].map(r => r._id)
+      objectIDs: body.requests.map(r => r.body.objectID)
     })
   })
 
@@ -186,7 +182,7 @@ const createServer = (options) => {
   app.get('/1/indexes/:indexName/:objectID', async (req, res) => {
     const { params: { indexName, objectID } } = req
     const db = await getIndex(indexName, replicas, path)
-    const { RESULT: results } = await db.QUERY({ GET: { _id: objectID } }, { DOCUMENTS: true })
+    const { RESULT: results } = await db.QUERY({ GET: `objectID:${objectID}` }, { DOCUMENTS: true })
 
     if (results.length === 0) {
       return res.status(404).json({
@@ -194,7 +190,7 @@ const createServer = (options) => {
       })
     }
 
-    const obj = { objectID: results[0]._id, ...results[0]._doc }
+    const { _doc: obj } = results[0]
     delete obj._id
 
     return res.status(200).json({
