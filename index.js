@@ -113,6 +113,34 @@ const createServer = (options) => {
     return res.json({ results })
   })
 
+  /**
+   * Algolia Get Objects from Multiple Indices
+   */
+  app.post('/1/indexes/*/objects', async (req, res) => {
+    const { requests } = req.body
+
+    const results = []
+    for (const request of requests) {
+      const { indexName, objectID } = request
+      const db = await getIndex(indexName, replicas, path)
+
+      const { RESULT: docs } = await db.QUERY({ GET: `objectID:${objectID}` }, { DOCUMENTS: true })
+
+      const hits = docs.map((item) => {
+        const { _doc: obj } = item
+        delete obj._id
+        return obj
+      })
+
+      results.push(...hits)
+    }
+
+    return res.json({ results })
+  })
+
+  /**
+   * Add object (without ID)
+   */
   app.post('/1/indexes/:indexName', async (req, res) => {
     const { body, params: { indexName } } = req
     const _id = v4()
@@ -198,6 +226,9 @@ const createServer = (options) => {
     })
   })
 
+  /**
+   * Add/update object (with ID)
+   */
   app.put('/1/indexes/:indexName/:objectID', async (req, res) => {
     const { body, params: { indexName } } = req
     const { objectID } = req.params
