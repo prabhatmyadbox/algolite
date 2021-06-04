@@ -280,9 +280,7 @@ const createServer = (options) => {
     }
 
     const db = await getIndex(indexName, replicas, path)
-    const result = await db.INDEX.GET('')
-    const ids = result.map(obj => obj._id)
-    await db.INDEX.DELETE(ids)
+    await db.FLUSH()
 
     return res.status(200).json({
       taskID: 'algolite-task-id'
