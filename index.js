@@ -114,7 +114,34 @@ const createServer = (options) => {
   })
 
   /**
+   * Algolia Index methods:
+   * index.getObject()
+   */
+  app.get('/1/indexes/:indexName/:objectID', async (req, res) => {
+    console.log(`WHY WAS I HIT?`)
+    const { params: { indexName, objectID } } = req
+    const db = await getIndex(indexName, replicas, path)
+    const { RESULT: results } = await db.QUERY({ GET: `objectID:${objectID}` }, { DOCUMENTS: true })
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        message: 'ObjectID does not exist'
+      })
+    }
+
+    const { _doc: obj } = results[0]
+    delete obj._id
+
+    console.log(`obj`, obj)
+
+    return res.status(200).json({
+      ...obj
+    })
+  })
+
+  /**
    * Algolia Get Objects from Multiple Indices
+   * index.getObjects()
    */
   app.post('/1/indexes/*/objects', async (req, res) => {
     const { requests } = req.body
@@ -126,13 +153,21 @@ const createServer = (options) => {
 
       const { RESULT: docs } = await db.QUERY({ GET: `objectID:${objectID}` }, { DOCUMENTS: true })
 
-      const hits = docs.map((item) => {
-        const { _doc: obj } = item
-        delete obj._id
-        return obj
-      })
+      if (docs.length > 0) {
+        const hits = docs.map((item) => {
+          const { _doc: obj } = item
+          delete obj._id
+          return obj
+        })
 
-      results.push(...hits)
+        results.push(...hits)
+      }
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        message: 'ObjectIDs do not exist'
+      })
     }
 
     return res.json({ results })
@@ -200,29 +235,6 @@ const createServer = (options) => {
 
     return res.status(201).json({
       objectIDs: body.requests.map(r => r.body.objectID)
-    })
-  })
-
-  /**
-   * Algolia Index methods:
-   * index.getObject()
-   */
-  app.get('/1/indexes/:indexName/:objectID', async (req, res) => {
-    const { params: { indexName, objectID } } = req
-    const db = await getIndex(indexName, replicas, path)
-    const { RESULT: results } = await db.QUERY({ GET: `objectID:${objectID}` }, { DOCUMENTS: true })
-
-    if (results.length === 0) {
-      return res.status(404).json({
-        message: 'ObjectID does not exist'
-      })
-    }
-
-    const { _doc: obj } = results[0]
-    delete obj._id
-
-    return res.status(200).json({
-      ...obj
     })
   })
 
