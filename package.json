@@ -1,12 +1,12 @@
 {
-  "name": "@zeit/algolite",
-  "version": "0.2.1",
+  "name": "@myadbox/algolite",
+  "version": "1.0.0",
   "main": "index.js",
   "bin": "cli.js",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@github.com:marconi1992/algolite.git"
+    "url": "git@github.com:prabhatmyadbox/algolite.git"
   },
   "scripts": {
     "generate:dsl-parser": "pegjs -o algoliaDSLParser.js algoliaDSL.pegjs",
