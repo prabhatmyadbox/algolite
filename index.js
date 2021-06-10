@@ -6,6 +6,14 @@ const { getIndex, existIndex } = require('./src/indexes')
 const { getReplicas } = require('./src/helpers')
 const { v4 } = require('uuid')
 
+const strArrayToArray = (value) => value.replace(/[\[\]'"]+/g, '').split(',')
+const wrapInQuotes = (token) => {
+  const [key, value] = token.split(':')
+  const newValue = `"${value.replace(/"'/g, '')}"`
+  const newToken = [key, newValue].join(':')
+  return newToken
+}
+
 const createServer = (options) => {
   const path = options.path || process.cwd()
   const replicas = getReplicas(options.replicas)
@@ -35,11 +43,13 @@ const createServer = (options) => {
     }
 
     if (filters) {
-      searchExp.push(parseAlgoliaSQL(db, filters))
+      const parsedFilters = strArrayToArray(facetFilters).map(n => wrapInQuotes(n))
+      searchExp.push(parseAlgoliaSQL(db, parsedFilters))
     }
 
     if (facetFilters) {
-      searchExp.push(parseAlgoliaSQL(db, facetFilters.map(f => Array.isArray(f) ? `(${f.join(' OR ')})` : f).join(' AND ')))
+      const parsedfacetFilters = strArrayToArray(facetFilters)
+      searchExp.push(parseAlgoliaSQL(db, parsedfacetFilters.map(f => Array.isArray(f) ? `(${wrapInQuotes(f).join(' OR ')})` : wrapInQuotes(f)).join(' AND ')))
     }
 
     const { RESULT: results } = await db.QUERY({ SEARCH: searchExp }, { DOCUMENTS: true })
@@ -69,19 +79,21 @@ const createServer = (options) => {
       const { indexName, params } = request
       const db = await getIndex(indexName, replicas, path)
 
-      const { query, filters, facetFilters } = querystring.parse(params)
+      const { query, facets, filters, facetFilters } = querystring.parse(params)
 
       const searchExp = []
       if (query) {
-        searchExp.push(query)
+        searchExp.push(!query ? '*' : query)
       }
 
       if (filters) {
-        searchExp.push(parseAlgoliaSQL(db, filters))
+        const parsedFilters = strArrayToArray(facetFilters).map(n => wrapInQuotes(n))
+        searchExp.push(parseAlgoliaSQL(db, parsedFilters))
       }
 
       if (facetFilters) {
-        searchExp.push(parseAlgoliaSQL(db, facetFilters.map(f => Array.isArray(f) ? `(${f.join(' OR ')})` : f).join(' AND ')))
+        const parsedfacetFilters = strArrayToArray(facetFilters)
+        searchExp.push(parseAlgoliaSQL(db, parsedfacetFilters.map(f => Array.isArray(f) ? `(${wrapInQuotes(f).join(' OR ')})` : wrapInQuotes(f)).join(' AND ')))
       }
 
       let docs = []
@@ -98,7 +110,25 @@ const createServer = (options) => {
         return obj
       })
 
+      const facetsValues = {}
+      const facetsParams = strArrayToArray(facets)
+      if (facetsParams.length >= 1) {
+        for (let i = 0; i < facetsParams.length; i++) {
+          const facet = facetsParams[i]
+          const docs = await db.FACETS({ FIELD: facet })
+          const facetObject = {}
+          docs && docs.forEach(d => {
+            facetObject[[d.VALUE]] = d._id.length
+          })
+
+          if (Object.keys(facetObject).length >= 1) {
+            facetsValues[[facet]] = facetObject
+          }
+        }
+      }
+
       results.push({
+        facets: facetsValues,
         hits,
         hitsPerPage: 96,
         index: indexName,
@@ -118,7 +148,6 @@ const createServer = (options) => {
    * index.getObject()
    */
   app.get('/1/indexes/:indexName/:objectID', async (req, res) => {
-    console.log(`WHY WAS I HIT?`)
     const { params: { indexName, objectID } } = req
     const db = await getIndex(indexName, replicas, path)
     const { RESULT: results } = await db.QUERY({ GET: `objectID:${objectID}` }, { DOCUMENTS: true })
@@ -131,8 +160,6 @@ const createServer = (options) => {
 
     const { _doc: obj } = results[0]
     delete obj._id
-
-    console.log(`obj`, obj)
 
     return res.status(200).json({
       ...obj
