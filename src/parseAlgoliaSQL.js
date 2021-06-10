@@ -1,7 +1,7 @@
 const parser = require('../algoliaDSLParser')
 
 const buildSearchExpression = (rule, db) => {
-  const { OR, AND } = db
+  const { OR, AND } = db.INDEX
   const { token, key, value, left, right } = rule
   if (token === 'MATCH') {
     return `${key}:${value.value}`

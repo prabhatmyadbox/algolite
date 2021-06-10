@@ -1,4 +1,5 @@
-start = Space* b:block Space* { return b; }
+start 
+  = Space* b:block Space* { return b; }
 
 block
   = Statement
@@ -108,7 +109,7 @@ Value "value"
 String "string"
   = '"' word:Special '"' { return { token: 'STRING', value: word  } }
   / "'" word:Special '"' { return { token: 'STRING', value: word  } }
-  / word:Special { return { token: 'STRING', value: word  } }
+  / word:SuperSpecial { return { token: 'STRING', value: word  } }
 
 Number "number"
   = value:[0-9]+ {
@@ -131,12 +132,13 @@ Null "null"
     }
   }
 
-
-
 Word "word"
   = w:Letter+ { return  w.join('') }
 
 Special "special"
+  = w:[^()"']+ { return w.join('') }
+  
+SuperSpecial "special"
   = w:[^ ()"']+ { return w.join('') }
   
 Letter
