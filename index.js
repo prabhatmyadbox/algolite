@@ -3,16 +3,8 @@ const cors = require('cors')
 const querystring = require('querystring')
 const parseAlgoliaSQL = require('./src/parseAlgoliaSQL')
 const { getIndex, existIndex } = require('./src/indexes')
-const { getReplicas } = require('./src/helpers')
+const { getReplicas, strArrayToArray, wrapInQuotes } = require('./src/helpers')
 const { v4 } = require('uuid')
-
-const strArrayToArray = (value) => value.replace(/[\[\]'"]+/g, '').split(',')
-const wrapInQuotes = (token) => {
-  const [key, value] = token.split(':')
-  const newValue = `"${value.replace(/"'/g, '')}"`
-  const newToken = [key, newValue].join(':')
-  return newToken
-}
 
 const createServer = (options) => {
   const path = options.path || process.cwd()
